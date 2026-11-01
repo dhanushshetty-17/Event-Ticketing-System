@@ -39,11 +39,6 @@ public class BookingConfirmationTransactionService {
                     "You are not allowed to confirm this booking");
         }
 
-        if (booking.getStatus() != BookingStatus.PENDING) {
-            throw new IllegalStateException(
-                    "Only PENDING bookings can be confirmed");
-        }
-
         EventSeat eventSeat = eventSeatRepository
                 .findWithLockByEventIdAndSeatId(
                         booking.getEvent().getId(),
@@ -56,6 +51,10 @@ public class BookingConfirmationTransactionService {
         if (booking.getExpiresAt() != null
                 && !booking.getExpiresAt().isAfter(now)) {
 
+            if (bookingRepository.expireIfPast(bookingId, now) != 1) {
+                throw new IllegalStateException(
+                        "Booking state changed before expiration");
+            }
             booking.setStatus(BookingStatus.EXPIRED);
 
             if (eventSeat.getStatus() == EventSeatStatus.RESERVED
@@ -83,6 +82,10 @@ public class BookingConfirmationTransactionService {
                     "Seat is reserved by another user");
         }
 
+        if (bookingRepository.confirmIfPending(bookingId) != 1) {
+            throw new IllegalStateException(
+                    "Booking state changed before confirmation");
+        }
         booking.setStatus(BookingStatus.CONFIRMED);
 
         eventSeat.setStatus(EventSeatStatus.BOOKED);

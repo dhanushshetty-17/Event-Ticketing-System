@@ -1,0 +1,2 @@
+ALTER TABLE seats
+    ADD COLUMN section VARCHAR(100);

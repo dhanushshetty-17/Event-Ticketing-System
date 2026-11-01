@@ -39,3 +39,13 @@ textarea,
 select {
   font: inherit;
 }
+
+@media print {
+  header {
+    display: none !important;
+  }
+
+  body {
+    background: white;
+  }
+}

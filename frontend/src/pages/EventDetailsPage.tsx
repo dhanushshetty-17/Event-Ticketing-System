@@ -2,11 +2,12 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Armchair, MapPin } from 'lucide-react'
+import { ArrowLeft, MapPin } from 'lucide-react'
 
 import { getEvent } from '../api/eventApi'
 import { getEventSeats, type EventSeat } from '../api/seatApi'
 import { reserveSeat } from '../api/reservationApi'
+import SeatMap from '../components/SeatMap'
 
 function EventDetailsPage() {
   const { eventId } = useParams<{ eventId: string }>()
@@ -37,7 +38,7 @@ function EventDetailsPage() {
     onSuccess: async (booking) => {
       setSelectedSeatId(null)
       setSuccessMessage(
-        `Seat reserved. Booking ID: ${booking.id}. Reservation expires at ${new Date(booking.expiresAt).toLocaleString()}.`,
+        `Seat reserved. Booking ID: ${booking.bookingId}. Reservation expires at ${new Date(booking.expiresAt ?? '').toLocaleString()}.`,
       )
       await queryClient.invalidateQueries({
         queryKey: ['event-seats', eventId],
@@ -141,70 +142,15 @@ function EventDetailsPage() {
             </button>
           </div>
 
-          <div className="mt-6 flex flex-wrap gap-4 text-xs text-slate-600">
-            <span className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded bg-emerald-500" />
-              Available
-            </span>
-            <span className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded bg-amber-400" />
-              Reserved
-            </span>
-            <span className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded bg-slate-400" />
-              Booked
-            </span>
-            <span className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded bg-blue-600" />
-              Selected
-            </span>
-          </div>
-
-          <div className="my-8 rounded-t-2xl border-t-4 border-slate-300 py-3 text-center text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
-            Stage / Front
-          </div>
-
-          {seats.length === 0 ? (
-            <p className="py-8 text-center text-slate-500">
-              No seats are configured for this event.
-            </p>
-          ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-6">
-              {seats.map((seat) => {
-                const available = seat.status === 'AVAILABLE'
-                const selected = selectedSeatId === seat.seatId
-
-                const seatStyle = selected
-                  ? 'bg-blue-600 text-white ring-2 ring-blue-300'
-                  : available
-                    ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
-                    : seat.status === 'RESERVED'
-                      ? 'bg-amber-100 text-amber-800'
-                      : 'bg-slate-200 text-slate-500'
-
-                return (
-                  <button
-                    key={seat.seatId}
-                    type="button"
-                    disabled={!available || reservationMutation.isPending}
-                    onClick={() => {
-                      setSelectedSeatId(seat.seatId)
-                      setSuccessMessage('')
-                    }}
-                    aria-pressed={selected}
-                    className={`flex min-h-20 flex-col items-center justify-center gap-1 rounded-xl border border-transparent p-3 text-sm font-semibold transition disabled:cursor-not-allowed ${seatStyle}`}
-                    title={`${seat.seatLabel}: ${seat.status}`}
-                  >
-                    <Armchair size={21} />
-                    <span>{seat.seatLabel}</span>
-                    <span className="text-[10px] font-medium">
-                      {selected ? 'SELECTED' : seat.status}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          )}
+          <SeatMap
+            seats={seats}
+            selectedSeatId={selectedSeatId}
+            disabled={reservationMutation.isPending}
+            onSelect={(seat) => {
+              setSelectedSeatId(seat.seatId)
+              setSuccessMessage('')
+            }}
+          />
 
           {selectedSeat && (
             <div className="mt-6 rounded-xl bg-blue-50 p-4">

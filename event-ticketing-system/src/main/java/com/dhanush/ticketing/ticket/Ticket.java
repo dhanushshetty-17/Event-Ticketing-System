@@ -4,6 +4,7 @@ import com.dhanush.ticketing.booking.Booking;
 import jakarta.persistence.*;
 
 import java.util.UUID;
+import java.time.Instant;
 
 @Entity
 @Table(
@@ -36,6 +37,15 @@ public class Ticket {
     @Column(nullable = false)
     private TicketStatus status;
 
+    @Column(name = "scanned_at")
+    private Instant scannedAt;
+
+    @Column(name = "scanned_by")
+    private String scannedBy;
+
+    @Column(name = "verification_token", nullable = false, unique = true)
+    private String verificationToken;
+
     public Ticket() {
     }
 
@@ -47,6 +57,13 @@ public class Ticket {
         this.booking = booking;
         this.ticketCode = ticketCode;
         this.status = status;
+    }
+
+    @PrePersist
+    private void initializeVerificationToken() {
+        if (verificationToken == null && ticketCode != null) {
+            verificationToken = ticketCode;
+        }
     }
 
     public UUID getId() {
@@ -79,5 +96,29 @@ public class Ticket {
 
     public void setStatus(TicketStatus status) {
         this.status = status;
+    }
+
+    public Instant getScannedAt() {
+        return scannedAt;
+    }
+
+    public String getScannedBy() {
+        return scannedBy;
+    }
+
+    public void setScannedAt(Instant scannedAt) {
+        this.scannedAt = scannedAt;
+    }
+
+    public void setScannedBy(String scannedBy) {
+        this.scannedBy = scannedBy;
+    }
+
+    public String getVerificationToken() {
+        return verificationToken;
+    }
+
+    public void setVerificationToken(String verificationToken) {
+        this.verificationToken = verificationToken;
     }
 }

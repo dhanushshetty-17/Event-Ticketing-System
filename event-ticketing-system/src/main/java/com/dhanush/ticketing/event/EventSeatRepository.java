@@ -28,4 +28,14 @@ public interface EventSeatRepository extends JpaRepository<EventSeat, UUID> {
     );
 
     List<EventSeat> findAllByEventId(UUID eventId);
+
+    @Query("""
+    SELECT es
+    FROM EventSeat es
+    JOIN FETCH es.seat
+    WHERE es.event.id = :eventId
+      AND es.event.status <> com.dhanush.ticketing.event.EventStatus.CANCELLED
+      AND es.seat.status = com.dhanush.ticketing.venue.SeatStatus.ACTIVE
+    """)
+    List<EventSeat> findPublicSeatsByEventId(@Param("eventId") UUID eventId);
 }

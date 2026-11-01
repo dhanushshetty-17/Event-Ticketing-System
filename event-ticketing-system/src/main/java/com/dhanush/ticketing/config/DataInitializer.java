@@ -18,14 +18,33 @@ import com.dhanush.ticketing.venue.VenueRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 
+import java.security.SecureRandom;
+import java.util.Base64;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 
 @Configuration
 public class DataInitializer {
+
+    private static final Logger log = LoggerFactory.getLogger(DataInitializer.class);
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
+    @Value("${app.seed.demo-data:false}")
+    private boolean demoDataEnabled;
+
+    @Value("${DEMO_ORGANIZER_USERNAME:organizer@example.com}")
+    private String demoOrganizerUsername;
+
+    @Value("${DEMO_ORGANIZER_PASSWORD:}")
+    private String configuredOrganizerPassword;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -38,9 +57,18 @@ public class DataInitializer {
             VenueRepository venueRepository,
             SeatRepository seatRepository,
             EventRepository eventRepository,
-            EventSeatRepository eventSeatRepository) {
+            EventSeatRepository eventSeatRepository,
+            Environment environment) {
 
         return args -> {
+            if (environment.acceptsProfiles(Profiles.of("prod"))
+                    && demoDataEnabled) {
+                throw new IllegalStateException(
+                        "Demo data seeding must be disabled in the prod profile");
+            }
+            if (!demoDataEnabled) {
+                return;
+            }
 
             if (userRepository.findByEmail("user@example.com").isPresent()) {
                 return;
@@ -48,13 +76,16 @@ public class DataInitializer {
 
             User user = new User();
             user.setEmail("user@example.com");
-            user.setPassword(passwordEncoder().encode("password123"));
+            user.setPassword(passwordEncoder().encode(generatePassword()));
             user.setRole(UserRole.USER);
             user = userRepository.save(user);
 
             User organizer = new User();
-            organizer.setEmail("organizer@example.com");
-            organizer.setPassword(passwordEncoder().encode("organizer123"));
+            organizer.setEmail(demoOrganizerUsername);
+            String organizerPassword = configuredOrganizerPassword.isBlank()
+                    ? generatePassword()
+                    : configuredOrganizerPassword;
+            organizer.setPassword(passwordEncoder().encode(organizerPassword));
             organizer.setRole(UserRole.ORGANIZER);
             organizer = userRepository.save(organizer);
 
@@ -105,9 +136,13 @@ public class DataInitializer {
             eventSeat2.setStatus(EventSeatStatus.AVAILABLE);
             eventSeatRepository.save(eventSeat2);
 
-            System.out.println("Test data initialized successfully.");
-            System.out.println("User: user@example.com / password123");
-            System.out.println("Organizer: organizer@example.com / organizer123");
+            log.info("Demo data initialized. Generated credentials are not logged.");
         };
+    }
+
+    private String generatePassword() {
+        byte[] passwordBytes = new byte[24];
+        SECURE_RANDOM.nextBytes(passwordBytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(passwordBytes);
     }
 }

@@ -6,6 +6,7 @@ import java.util.UUID;
 public record EventSeatResponse(
         UUID seatId,
         String seatLabel,
+        String section,
         EventSeatStatus status
 ) {
 }

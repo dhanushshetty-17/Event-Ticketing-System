@@ -33,6 +33,9 @@ public class Seat {
     @Column(nullable = false)
     private Integer seatNumber;
 
+    @Column
+    private String section;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private SeatStatus status;
@@ -96,6 +99,14 @@ public class Seat {
 
     public void setSeatNumber(Integer seatNumber) {
         this.seatNumber = seatNumber;
+    }
+
+    public String getSection() {
+        return section;
+    }
+
+    public void setSection(String section) {
+        this.section = section;
     }
 
     public void setStatus(SeatStatus status) {

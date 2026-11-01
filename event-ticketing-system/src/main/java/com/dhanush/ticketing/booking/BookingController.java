@@ -8,27 +8,51 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 
 @RestController
 @RequestMapping("/api/bookings")
 public class BookingController {
 
     private final BookingRepository bookingRepository;
+    private final BookingCancellationService cancellationService;
 
-    public BookingController(BookingRepository bookingRepository) {
+    public BookingController(
+            BookingRepository bookingRepository,
+            BookingCancellationService cancellationService) {
         this.bookingRepository = bookingRepository;
+        this.cancellationService = cancellationService;
     }
 
     @GetMapping
-    public List<BookingResponse> getMyBookings(
-            Authentication authentication) {
+    public Page<BookingResponse> getMyBookings(
+            Authentication authentication,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
 
         UUID userId = UUID.fromString(authentication.getName());
 
-        return bookingRepository.findAllByUser_Id(userId)
-                .stream()
-                .map(this::toResponse)
-                .toList();
+        return bookingRepository.findAllByUser_IdOrderByCreatedAtDesc(
+                        userId,
+                        PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100)))
+                .map(this::toResponse);
+    }
+
+    @GetMapping("/my-bookings")
+    public Page<BookingResponse> getMyBookingsAlias(
+            Authentication authentication,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return getMyBookings(authentication, page, size);
+    }
+
+    @PostMapping("/{bookingId}/cancel")
+    public BookingResponse cancelBooking(
+            @PathVariable UUID bookingId,
+            Authentication authentication) {
+        UUID userId = UUID.fromString(authentication.getName());
+        return toResponse(cancellationService.cancelBooking(bookingId, userId));
     }
 
     @GetMapping("/{id}")

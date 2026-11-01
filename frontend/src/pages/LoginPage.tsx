@@ -1,15 +1,16 @@
 import { useState, type FormEvent } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { LockKeyhole, Mail } from 'lucide-react'
 
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/useAuth'
 
 function LoginPage() {
   const { isAuthenticated, loginUser } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
 
-  const [email, setEmail] = useState('user@example.com')
-  const [password, setPassword] = useState('password123')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
@@ -25,7 +26,8 @@ function LoginPage() {
 
     try {
       await loginUser(email, password)
-      navigate('/events', { replace: true })
+      const returnTo = (location.state as { returnTo?: string } | null)?.returnTo
+      navigate(returnTo || '/events', { replace: true })
     } catch {
       setError('Invalid email or password.')
     } finally {
@@ -123,13 +125,16 @@ function LoginPage() {
           </button>
         </form>
 
-        <div className="mt-6 rounded-lg bg-slate-50 p-4 text-xs text-slate-500">
-          <p className="font-medium text-slate-700">
-            Development account
-          </p>
-          <p className="mt-1">user@example.com</p>
-          <p>password123</p>
-        </div>
+        <p className="mt-6 text-center text-sm text-slate-500">
+          New to Evently?{' '}
+          <Link
+            to="/register"
+            className="font-semibold text-slate-900 hover:text-indigo-600"
+          >
+            Create an account
+          </Link>
+        </p>
+
       </section>
     </main>
   )

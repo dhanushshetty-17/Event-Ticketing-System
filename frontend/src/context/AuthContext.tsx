@@ -1,66 +1,39 @@
 import {
-  createContext,
-  useContext,
-  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react'
 
-import { login, type LoginResponse } from '../api/authApi'
-
-interface AuthContextValue {
-  user: LoginResponse | null
-  isAuthenticated: boolean
-  loginUser: (email: string, password: string) => Promise<void>
-  logout: () => void
-}
-
-const AuthContext = createContext<AuthContextValue | undefined>(undefined)
+import { login } from '../api/authApi'
+import type { AuthUser } from '../types/auth'
+import { clearStoredAuth, getStoredAuth, storeAuth } from './authStorage'
+import { AuthContext, type AuthContextValue } from './AuthContextDefinition'
 
 interface AuthProviderProps {
   children: ReactNode
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<LoginResponse | null>(null)
-
-  useEffect(() => {
-    const storedToken = localStorage.getItem('accessToken')
-    const storedUser = localStorage.getItem('user')
-
-    if (!storedToken || !storedUser) {
-      return
-    }
-
-    try {
-      const parsedUser = JSON.parse(storedUser) as LoginResponse
-      setUser(parsedUser)
-    } catch {
-      localStorage.removeItem('accessToken')
-      localStorage.removeItem('user')
-    }
-  }, [])
+  const [user, setUser] = useState<AuthUser | null>(() => getStoredAuth())
 
   const loginUser = async (
     email: string,
     password: string,
   ): Promise<void> => {
-    const response = await login({
-      email,
-      password,
-    })
+    const response = await login({ email, password })
+    const authenticatedUser: AuthUser = {
+      ...response,
+      role: response.role === 'ORGANIZER'
+        ? 'ROLE_ORGANIZER'
+        : 'ROLE_USER',
+    }
 
-    localStorage.setItem('accessToken', response.token)
-    localStorage.setItem('user', JSON.stringify(response))
-
-    setUser(response)
+    storeAuth(response.token, authenticatedUser)
+    setUser(authenticatedUser)
   }
 
   const logout = (): void => {
-    localStorage.removeItem('accessToken')
-    localStorage.removeItem('user')
-
+    clearStoredAuth()
     setUser(null)
   }
 
@@ -79,16 +52,4 @@ export function AuthProvider({ children }: AuthProviderProps) {
       {children}
     </AuthContext.Provider>
   )
-}
-
-export function useAuth(): AuthContextValue {
-  const context = useContext(AuthContext)
-
-  if (!context) {
-    throw new Error(
-      'useAuth must be used inside an AuthProvider',
-    )
-  }
-
-  return context
 }

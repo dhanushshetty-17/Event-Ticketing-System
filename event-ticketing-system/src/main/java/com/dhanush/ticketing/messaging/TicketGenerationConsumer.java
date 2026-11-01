@@ -12,6 +12,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.context.annotation.Profile;
 
 import java.util.UUID;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import org.springframework.beans.factory.annotation.Value;
 
 @Profile("!outbox-test")
 @Component
@@ -19,13 +24,16 @@ public class TicketGenerationConsumer {
 
     private final BookingRepository bookingRepository;
     private final TicketRepository ticketRepository;
+    private final String jwtSecret;
 
     public TicketGenerationConsumer(
             BookingRepository bookingRepository,
-            TicketRepository ticketRepository) {
+            TicketRepository ticketRepository,
+            @Value("${security.jwt.secret}") String jwtSecret) {
 
         this.bookingRepository = bookingRepository;
         this.ticketRepository = ticketRepository;
+        this.jwtSecret = jwtSecret;
     }
 
     @RabbitListener(queues = "ticket.generation.queue")
@@ -54,6 +62,19 @@ public class TicketGenerationConsumer {
         ticket.setTicketCode(UUID.randomUUID().toString());
         ticket.setStatus(TicketStatus.ISSUED);
 
-        ticketRepository.save(ticket);
+        Ticket savedTicket = ticketRepository.save(ticket);
+        savedTicket.setVerificationToken(createVerificationToken(savedTicket));
+        ticketRepository.save(savedTicket);
+    }
+
+    private String createVerificationToken(Ticket ticket) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(jwtSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(mac.doFinal(
+                    (ticket.getId() + ":" + ticket.getTicketCode()).getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception exception) {
+            throw new IllegalStateException("Unable to create ticket verification token", exception);
+        }
     }
 }

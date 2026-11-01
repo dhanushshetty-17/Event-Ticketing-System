@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 
 @RestController
 @RequestMapping("/api/events")
@@ -25,44 +27,53 @@ public class EventController {
     private final UserRepository userRepository;
     private final SeatRepository seatRepository;
     private final EventSeatRepository eventSeatRepository;
+    private final EventCancellationService eventCancellationService;
 
     public EventController(
             EventRepository eventRepository,
             VenueRepository venueRepository,
             UserRepository userRepository,
             SeatRepository seatRepository,
-            EventSeatRepository eventSeatRepository) {
+            EventSeatRepository eventSeatRepository,
+            EventCancellationService eventCancellationService) {
 
         this.eventRepository = eventRepository;
         this.venueRepository = venueRepository;
         this.userRepository = userRepository;
         this.seatRepository = seatRepository;
         this.eventSeatRepository = eventSeatRepository;
+        this.eventCancellationService = eventCancellationService;
     }
 
     @GetMapping("/{id}/seats")
     public List<EventSeatResponse> getEventSeats(@PathVariable UUID id) {
-        if (!eventRepository.existsById(id)) {
+        Event event = eventRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Event not found"));
+        if (event.getStatus() == EventStatus.CANCELLED) {
             throw new ResourceNotFoundException("Event not found");
         }
 
-        return eventSeatRepository.findAllByEventIdWithSeat(id)
+        return eventSeatRepository.findPublicSeatsByEventId(id)
                 .stream()
                 .map(eventSeat -> new EventSeatResponse(
                         eventSeat.getSeat().getId(),
                         eventSeat.getSeat().getSeatLabel(),
+                        eventSeat.getSeat().getSection(),
                         eventSeat.getStatus()
                 ))
                 .toList();
     }
 
     @GetMapping
-    public List<EventResponse> getAllEvents() {
+    public Page<EventResponse> getAllEvents(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
 
-        return eventRepository.findAll()
-                .stream()
-                .map(this::toResponse)
-                .toList();
+        int boundedSize = Math.min(Math.max(size, 1), 100);
+        return eventRepository.findAllByStatusNot(
+                EventStatus.CANCELLED,
+                PageRequest.of(Math.max(page, 0), boundedSize))
+                .map(this::toResponse);
     }
 
     @GetMapping("/{id}")
@@ -71,6 +82,9 @@ public class EventController {
         Event event = eventRepository.findById(id)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Event not found"));
+        if (event.getStatus() == EventStatus.CANCELLED) {
+            throw new ResourceNotFoundException("Event not found");
+        }
 
         return toResponse(event);
     }
@@ -113,12 +127,8 @@ public class EventController {
 
         Event savedEvent = eventRepository.save(event);
 
-        List<Seat> activeSeats = seatRepository.findAll()
-                .stream()
-                .filter(seat ->
-                        seat.getVenue().getId().equals(venue.getId())
-                                && seat.getStatus() == SeatStatus.ACTIVE)
-                .toList();
+        List<Seat> activeSeats = seatRepository.findAllByVenueIdAndStatus(
+                venue.getId(), SeatStatus.ACTIVE);
 
         List<EventSeat> eventSeats = activeSeats
                 .stream()
@@ -195,6 +205,14 @@ public class EventController {
                         new ResourceNotFoundException("Event not found"));
 
         return toResponse(responseEvent);
+    }
+
+    @PatchMapping("/{id}/cancel")
+    public EventResponse cancelEvent(
+            @PathVariable UUID id,
+            Authentication authentication) {
+        UUID organizerId = UUID.fromString(authentication.getName());
+        return toResponse(eventCancellationService.cancelEvent(id, organizerId));
     }
 
     private EventResponse toResponse(Event event) {

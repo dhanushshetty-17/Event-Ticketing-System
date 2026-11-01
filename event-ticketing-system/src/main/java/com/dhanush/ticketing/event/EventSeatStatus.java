@@ -4,5 +4,6 @@ public enum EventSeatStatus {
 
     AVAILABLE,
     RESERVED,
-    BOOKED
+    BOOKED,
+    DISABLED
 }
