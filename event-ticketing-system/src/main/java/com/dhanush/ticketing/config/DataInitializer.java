@@ -30,6 +30,9 @@ import java.security.SecureRandom;
 import java.util.Base64;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 @Configuration
 public class DataInitializer {
@@ -70,74 +73,116 @@ public class DataInitializer {
                 return;
             }
 
-            if (userRepository.findByEmail("user@example.com").isPresent()) {
-                return;
+            User user = userRepository.findByEmail("user@example.com")
+                    .orElseGet(() -> {
+                        User created = new User();
+                        created.setEmail("user@example.com");
+                        created.setPassword(passwordEncoder().encode(generatePassword()));
+                        created.setRole(UserRole.USER);
+                        return userRepository.save(created);
+                    });
+
+            User organizer = userRepository.findByEmail(demoOrganizerUsername)
+                    .orElseGet(() -> {
+                        User created = new User();
+                        created.setEmail(demoOrganizerUsername);
+                        String password = configuredOrganizerPassword.isBlank()
+                                ? generatePassword()
+                                : configuredOrganizerPassword;
+                        created.setPassword(passwordEncoder().encode(password));
+                        created.setRole(UserRole.ORGANIZER);
+                        return userRepository.save(created);
+                    });
+            if (!configuredOrganizerPassword.isBlank()) {
+                organizer.setPassword(passwordEncoder().encode(configuredOrganizerPassword));
+                organizer.setRole(UserRole.ORGANIZER);
+                organizer = userRepository.save(organizer);
             }
 
-            User user = new User();
-            user.setEmail("user@example.com");
-            user.setPassword(passwordEncoder().encode(generatePassword()));
-            user.setRole(UserRole.USER);
-            user = userRepository.save(user);
+            Venue conventionCentre = findOrCreateVenue(
+                    venueRepository, "Bangalore Convention Centre", "Bangalore, Karnataka");
+            Venue amphitheatre = findOrCreateVenue(
+                    venueRepository, "The Riverfront Amphitheatre", "Ahmedabad, Gujarat");
+            Venue studio = findOrCreateVenue(
+                    venueRepository, "Indiranagar Arts Studio", "Bangalore, Karnataka");
 
-            User organizer = new User();
-            organizer.setEmail(demoOrganizerUsername);
-            String organizerPassword = configuredOrganizerPassword.isBlank()
-                    ? generatePassword()
-                    : configuredOrganizerPassword;
-            organizer.setPassword(passwordEncoder().encode(organizerPassword));
-            organizer.setRole(UserRole.ORGANIZER);
-            organizer = userRepository.save(organizer);
+            List<Seat> conventionSeats = ensureSeats(seatRepository, conventionCentre, 30);
+            List<Seat> amphitheatreSeats = ensureSeats(seatRepository, amphitheatre, 24);
+            List<Seat> studioSeats = ensureSeats(seatRepository, studio, 18);
 
-            Venue venue = new Venue();
-            venue.setName("Bangalore Convention Centre");
-            venue.setAddress("Bangalore, Karnataka");
-            venue = venueRepository.save(venue);
+            OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+            ensureEvent(eventRepository, eventSeatRepository, "Tech Conference 2026",
+                    "A high-energy day of product stories, engineering lessons and future-facing ideas.",
+                    conventionCentre, organizer, now.plusDays(7).withHour(9).withMinute(30), conventionSeats);
+            ensureEvent(eventRepository, eventSeatRepository, "Neon Garden Sessions",
+                    "An after-dark electronic music experience with live visuals, local selectors and an open-air dance floor.",
+                    amphitheatre, organizer, now.plusDays(14).withHour(19).withMinute(0), amphitheatreSeats);
+            ensureEvent(eventRepository, eventSeatRepository, "Designing Tomorrow",
+                    "A small-room salon for creators, founders and curious minds shaping what comes next.",
+                    studio, organizer, now.plusDays(21).withHour(18).withMinute(30), studioSeats);
+            ensureEvent(eventRepository, eventSeatRepository, "The Weekend Food Lab",
+                    "Five chefs, one shared table and a tasting menu built around the best produce of the season.",
+                    conventionCentre, organizer, now.plusDays(30).withHour(12).withMinute(0), conventionSeats);
 
-            Seat seat1 = new Seat();
-            seat1.setVenue(venue);
-            seat1.setSeatLabel("A1");
-            seat1.setRowName("A");
-            seat1.setSeatNumber(1);
-            seat1.setStatus(SeatStatus.ACTIVE);
-            seat1 = seatRepository.save(seat1);
-
-            Seat seat2 = new Seat();
-            seat2.setVenue(venue);
-            seat2.setSeatLabel("A2");
-            seat2.setRowName("A");
-            seat2.setSeatNumber(2);
-            seat2.setStatus(SeatStatus.ACTIVE);
-            seat2 = seatRepository.save(seat2);
-
-            Event event = new Event();
-            event.setName("Tech Conference 2026");
-            event.setDescription("Technology and software engineering conference.");
-            event.setVenue(venue);
-            event.setOrganizer(organizer);
-            event.setStartsAt(
-                    OffsetDateTime.now(ZoneOffset.UTC).plusDays(7)
-            );
-            event.setEndsAt(
-                    OffsetDateTime.now(ZoneOffset.UTC).plusDays(7).plusHours(4)
-            );
-            event.setStatus(EventStatus.PUBLISHED);
-            event = eventRepository.save(event);
-
-            EventSeat eventSeat1 = new EventSeat();
-            eventSeat1.setEvent(event);
-            eventSeat1.setSeat(seat1);
-            eventSeat1.setStatus(EventSeatStatus.AVAILABLE);
-            eventSeatRepository.save(eventSeat1);
-
-            EventSeat eventSeat2 = new EventSeat();
-            eventSeat2.setEvent(event);
-            eventSeat2.setSeat(seat2);
-            eventSeat2.setStatus(EventSeatStatus.AVAILABLE);
-            eventSeatRepository.save(eventSeat2);
-
-            log.info("Demo data initialized. Generated credentials are not logged.");
+            log.info("Demo catalog initialized with multiple venues, events and seats.");
         };
+    }
+
+    private Venue findOrCreateVenue(VenueRepository repository, String name, String address) {
+        return repository.findAll().stream()
+                .filter(item -> item.getName().equals(name))
+                .findFirst()
+                .orElseGet(() -> repository.save(new Venue(name, address)));
+    }
+
+    private List<Seat> ensureSeats(SeatRepository repository, Venue venue, int count) {
+        List<Seat> existing = repository.findAll().stream()
+                .filter(seat -> seat.getVenue().getId().equals(venue.getId()))
+                .toList();
+        if (existing.size() >= count) return existing;
+
+        List<Seat> created = new java.util.ArrayList<>(existing);
+        String[] rows = {"A", "B", "C", "D", "E"};
+        Map<String, String> sections = Map.of("A", "VIP", "B", "VIP", "C", "PREMIUM", "D", "STANDARD", "E", "STANDARD");
+        for (String row : rows) {
+            for (int number = 1; number <= 6 && created.size() < count; number++) {
+                String label = row + number;
+                if (created.stream().anyMatch(seat -> seat.getSeatLabel().equals(label))) continue;
+                Seat seat = new Seat(venue, label, row, number, SeatStatus.ACTIVE);
+                seat.setSection(sections.get(row));
+                created.add(repository.save(seat));
+            }
+        }
+        return created;
+    }
+
+    private void ensureEvent(
+            EventRepository eventRepository,
+            EventSeatRepository eventSeatRepository,
+            String name,
+            String description,
+            Venue venue,
+            User organizer,
+            OffsetDateTime startsAt,
+            List<Seat> seats) {
+        Optional<Event> existing = eventRepository.findAll().stream()
+                .filter(event -> event.getName().equals(name))
+                .findFirst();
+        Event event = existing.orElseGet(() -> new Event(
+                name, description, venue, organizer, startsAt, startsAt.plusHours(4), EventStatus.PUBLISHED));
+        event.setDescription(description);
+        event.setVenue(venue);
+        event.setOrganizer(organizer);
+        event.setStartsAt(startsAt);
+        event.setEndsAt(startsAt.plusHours(4));
+        event.setStatus(EventStatus.PUBLISHED);
+        event = eventRepository.save(event);
+        List<EventSeat> eventSeats = eventSeatRepository.findAllByEventId(event.getId());
+        for (int index = eventSeats.size(); index < seats.size(); index++) {
+            EventSeat eventSeat = new EventSeat(event, seats.get(index), EventSeatStatus.AVAILABLE);
+            if (index % 11 == 0) eventSeat.setStatus(EventSeatStatus.BOOKED);
+            eventSeatRepository.save(eventSeat);
+        }
     }
 
     private String generatePassword() {

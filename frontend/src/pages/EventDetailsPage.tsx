@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, MapPin } from 'lucide-react'
+import { ArrowLeft, CalendarDays, Check, MapPin, RefreshCw, ShieldCheck } from 'lucide-react'
 
 import { getEvent } from '../api/eventApi'
 import { getEventSeats, type EventSeat } from '../api/seatApi'
@@ -56,7 +56,7 @@ function EventDetailsPage() {
 
   if (eventQuery.isLoading || seatsQuery.isLoading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-50">
+      <main className="flex min-h-screen items-center justify-center bg-[#f7f4ee]">
         <p className="text-slate-600">Loading event and seats...</p>
       </main>
     )
@@ -64,14 +64,14 @@ function EventDetailsPage() {
 
   if (eventQuery.isError || seatsQuery.isError || !eventQuery.data) {
     return (
-      <main className="min-h-screen bg-slate-50 p-8">
+      <main className="min-h-screen bg-[#f7f4ee] p-8">
         <p className="text-red-700">
           Unable to load event details or seat availability. Please refresh and try again.
         </p>
         <button
           type="button"
           onClick={() => navigate('/events')}
-          className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-white"
+          className="mt-4 rounded-lg bg-[#18251f] px-4 py-2 text-white"
         >
           Back to events
         </button>
@@ -89,43 +89,45 @@ function EventDetailsPage() {
   ).length
 
   return (
-    <main className="min-h-screen bg-slate-50 px-6 py-10">
+    <main className="min-h-screen bg-[#f7f4ee] px-4 py-8 text-[#18251f] sm:px-6">
       <div className="mx-auto max-w-5xl">
         <button
           type="button"
           onClick={() => navigate('/events')}
-          className="mb-6 flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900"
+          className="mb-6 flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-[#c2523b]"
         >
           <ArrowLeft size={17} />
           Back to events
         </button>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
-          <p className="text-sm font-semibold uppercase tracking-wider text-slate-500">
-            Event details
+        <section className="relative overflow-hidden rounded-[2rem] bg-[#18251f] p-7 text-[#f7f4ee] shadow-xl md:p-10">
+          <div className="absolute -right-10 -top-20 h-60 w-60 rounded-full border-[34px] border-[#e7b85b]/20" />
+          <p className="relative text-sm font-bold uppercase tracking-[0.25em] text-[#e7b85b]">
+            You found a good one
           </p>
-          <h1 className="mt-2 text-3xl font-bold text-slate-900">
+          <h1 className="relative mt-3 max-w-3xl font-serif text-4xl sm:text-5xl">
             {event.name}
           </h1>
-          <p className="mt-3 text-slate-600">{event.description}</p>
+          <p className="relative mt-4 max-w-2xl leading-7 text-[#d3ddd6]">{event.description}</p>
 
-          <div className="mt-5 flex flex-wrap items-center gap-4 text-sm text-slate-500">
+          <div className="relative mt-7 flex flex-wrap items-center gap-5 text-sm text-[#d3ddd6]">
             <span className="flex items-center gap-2">
               <MapPin size={17} />
               {event.venueName}
             </span>
-            <span>{new Date(event.startsAt).toLocaleString()}</span>
+            <span className="flex items-center gap-2"><CalendarDays size={17} /> {new Date(event.startsAt).toLocaleString()}</span>
           </div>
         </section>
 
-        <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 md:p-8">
+        <section className="mt-6 rounded-[2rem] border border-[#ded8cd] bg-white p-6 shadow-sm md:p-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-xl font-bold text-slate-900">
-                Choose your seat
+              <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#c2523b]">Your view of the night</p>
+              <h2 className="mt-2 font-serif text-3xl text-[#18251f]">
+                Pick your seat
               </h2>
-              <p className="mt-1 text-sm text-slate-500">
-                {availableCount} available out of {seats.length} seats
+              <p className="mt-2 text-sm text-slate-500">
+                {availableCount} of {seats.length} seats are available. Blue means your current pick.
               </p>
             </div>
 
@@ -136,9 +138,9 @@ function EventDetailsPage() {
                   queryKey: ['event-seats', eventId],
                 })
               }
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="flex items-center gap-2 rounded-lg border border-[#cfc7b8] px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-[#f7f4ee]"
             >
-              Refresh seats
+              <RefreshCw size={15} /> Refresh
             </button>
           </div>
 
@@ -153,15 +155,16 @@ function EventDetailsPage() {
           />
 
           {selectedSeat && (
-            <div className="mt-6 rounded-xl bg-blue-50 p-4">
-              <p className="text-sm text-blue-900">
+            <div className="mt-6 rounded-2xl bg-[#e8f0e8] p-5">
+              <p className="flex items-center gap-2 text-sm font-semibold text-[#18251f]">
+                <Check size={17} className="text-[#2d8a61]" />
                 Selected seat: <strong>{selectedSeat.seatLabel}</strong>
               </p>
               <button
                 type="button"
                 disabled={reservationMutation.isPending}
                 onClick={() => reservationMutation.mutate(selectedSeat)}
-                className="mt-3 w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-4 w-full rounded-xl bg-[#c2523b] px-4 py-3 text-sm font-bold text-white hover:bg-[#a54230] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {reservationMutation.isPending
                   ? 'Reserving seat...'
@@ -173,8 +176,9 @@ function EventDetailsPage() {
           {successMessage && (
             <p
               role="status"
-              className="mt-4 break-words rounded-lg bg-slate-100 p-3 text-sm text-slate-700"
+              className="mt-4 flex items-start gap-2 break-words rounded-lg bg-[#f7f4ee] p-3 text-sm text-slate-700"
             >
+              <ShieldCheck size={16} className="mt-0.5 shrink-0 text-[#2d8a61]" />
               {successMessage}
             </p>
           )}

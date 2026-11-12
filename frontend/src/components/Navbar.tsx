@@ -17,8 +17,8 @@ function Navbar() {
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `rounded-lg px-3 py-2 text-sm font-medium transition ${
       isActive
-        ? 'bg-indigo-500/15 text-indigo-300'
-        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+        ? 'bg-[#e9e3d8] text-[#c2523b]'
+        : 'text-slate-600 hover:bg-[#e9e3d8] hover:text-[#18251f]'
     }`
 
   const handleLogout = () => {
@@ -28,17 +28,17 @@ function Navbar() {
   }
 
   return (
-    <header className="border-b border-slate-800 bg-slate-950/95 text-white backdrop-blur">
-      <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
+    <header className="border-b border-[#ded8cd] bg-[#f7f4ee]/95 text-[#18251f] backdrop-blur">
+      <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
         <NavLink
           to="/events"
           className="flex items-center gap-2 text-lg font-bold tracking-tight"
           onClick={closeMenu}
         >
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500/20 text-indigo-300">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#c2523b] text-[#f7f4ee]">
             <Ticket size={19} aria-hidden="true" />
           </span>
-          Evently
+          <span className="font-serif text-xl">Evently</span>
         </NavLink>
 
         <button
@@ -70,7 +70,7 @@ function Navbar() {
             <button
               type="button"
               onClick={handleLogout}
-              className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-red-400/50 hover:text-red-300"
+              className="rounded-lg border border-[#cfc7b8] px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-[#c2523b]/50 hover:text-[#c2523b]"
             >
               Log out
             </button>
